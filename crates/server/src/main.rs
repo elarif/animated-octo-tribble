@@ -1,3 +1,4 @@
+mod routing;
 mod sim;
 
 use axum::extract::ws::{Message, WebSocket, WebSocketUpgrade};

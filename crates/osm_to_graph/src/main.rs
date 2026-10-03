@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use common::{write_graph, Edge, Graph, HighwayClass, Node};
+use common::{write_graph, Edge, Graph, HighwayClass, Node, haversine};
 use osmpbf::{Element, ElementReader};
 use std::collections::HashMap;
 use std::env;
@@ -96,7 +96,7 @@ fn parse(path: &str) -> Result<Graph> {
                 (Some(&a), Some(&b)) => (a as usize, b as usize),
                 _ => continue,
             };
-            let length_m = haversine(nodes[ai], nodes[bi]);
+            let length_m = haversine(nodes[ai], nodes[bi]) as f32;
             let pedestrian = class.pedestrian_ok();
             adj[ai].push(Edge {
                 to: bi as u32,
@@ -117,13 +117,4 @@ fn parse(path: &str) -> Result<Graph> {
         }
     }
     Ok(Graph { nodes, adj })
-}
-
-fn haversine(a: Node, b: Node) -> f32 {
-    let r = 6_371_000.0;
-    let dlat = (b.lat - a.lat).to_radians();
-    let dlon = (b.lon - a.lon).to_radians();
-    let h = (dlat / 2.0).sin().powi(2)
-        + a.lat.to_radians().cos() * b.lat.to_radians().cos() * (dlon / 2.0).sin().powi(2);
-    (2.0 * r * h.sqrt()) as f32
 }

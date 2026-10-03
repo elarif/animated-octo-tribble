@@ -122,6 +122,16 @@ impl Graph {
     }
 }
 
+/// Distance géodésique en mètres.
+pub fn haversine(a: Node, b: Node) -> f64 {
+    let r = 6_371_000.0;
+    let dlat = (b.lat - a.lat).to_radians();
+    let dlon = (b.lon - a.lon).to_radians();
+    let h = (dlat / 2.0).sin().powi(2)
+        + a.lat.to_radians().cos() * b.lat.to_radians().cos() * (dlon / 2.0).sin().powi(2);
+    2.0 * r * h.sqrt()
+}
+
 /// Sérialisation bincode-like simple : JSON dans un Vec, avec magic + comptes.
 /// ponytail: bincode ajouté si la taille du fichier pose un problème.
 pub fn write_graph(graph: &Graph) -> Vec<u8> {
