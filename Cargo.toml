@@ -1,0 +1,6 @@
+[workspace]
+resolver = "2"
+members = ["crates/common", "crates/osm_to_graph", "crates/server"]
+
+[profile.release]
+lto = true

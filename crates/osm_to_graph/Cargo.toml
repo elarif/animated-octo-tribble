@@ -1,0 +1,9 @@
+[package]
+name = "osm_to_graph"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+common = { path = "../common" }
+osmpbf = "0.3"
+anyhow = "1"
