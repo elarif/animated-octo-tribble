@@ -16,9 +16,12 @@ async fn main() {
     // PORT (plateformes) ou ADDR (local).
     let addr: SocketAddr = match std::env::var("ADDR") {
         Ok(a) => a.parse().expect("ADDR invalide"),
-        Err(_) => format!("0.0.0.0:{}", std::env::var("PORT").unwrap_or_else(|_| "9000".into()))
-            .parse()
-            .expect("PORT invalide"),
+        Err(_) => format!(
+            "0.0.0.0:{}",
+            std::env::var("PORT").unwrap_or_else(|_| "9000".into())
+        )
+        .parse()
+        .expect("PORT invalide"),
     };
 
     let state = Arc::new(SimState::load(&graph_path));
