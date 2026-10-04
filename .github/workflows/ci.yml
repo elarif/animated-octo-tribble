@@ -52,6 +52,7 @@ jobs:
     name: Déploiement GitHub Pages
     needs: [flutter]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
     permissions:
       pages: write
       id-token: write
