@@ -13,10 +13,13 @@ use tokio::sync::broadcast;
 #[tokio::main]
 async fn main() {
     let graph_path = std::env::var("GRAPH_PATH").unwrap_or_else(|_| "data/graph.bin".into());
-    let addr: SocketAddr = std::env::var("ADDR")
-        .unwrap_or_else(|_| "127.0.0.1:9000".into())
-        .parse()
-        .expect("ADDR invalide");
+    // PORT (plateformes) ou ADDR (local).
+    let addr: SocketAddr = match std::env::var("ADDR") {
+        Ok(a) => a.parse().expect("ADDR invalide"),
+        Err(_) => format!("0.0.0.0:{}", std::env::var("PORT").unwrap_or_else(|_| "9000".into()))
+            .parse()
+            .expect("PORT invalide"),
+    };
 
     let state = Arc::new(SimState::load(&graph_path));
     println!("serveur {addr} — graph: {}", state.has_graph_description());
@@ -26,6 +29,7 @@ async fn main() {
     let app = Router::new()
         .route("/sim", get(sim_ws))
         .route("/control", get(control_ws))
+        .route("/health", get(|| async { "ok" }))
         .with_state((state.clone(), sim_tx.clone()));
 
     // Boucle de tick 10 Hz.

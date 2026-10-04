@@ -1,0 +1,6 @@
+target/
+data/
+app/
+.git/
+docs/
+*.osm.pbf
