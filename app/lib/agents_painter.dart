@@ -32,10 +32,12 @@ class AgentsPainter extends CustomPainter {
     }
   }
 
-  /// Voiture = triangle bleu orienté selon le cap (hdg, degrés, 0 = est).
+  /// Voiture = triangle bleu orienté selon la direction du déplacement.
+  /// `headingDeg` est un cap boussole (0° = nord, 90° = est), converti en
+  /// angle écran (0° = est, y vers le bas) : angle = hdg - 90°.
   void _drawCar(Canvas canvas, Offset c, double headingDeg) {
     const r = 5.0;
-    final th = headingDeg * 3.141592653589793 / 180.0;
+    final th = (headingDeg - 90) * 3.141592653589793 / 180.0;
     final forward = Offset(r * cos(th), r * sin(th));
     final backLeft = Offset(-r * 0.6 * cos(th) - r * 0.55 * sin(th),
         -r * 0.6 * sin(th) + r * 0.55 * cos(th));
