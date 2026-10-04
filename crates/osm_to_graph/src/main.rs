@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use common::{write_graph, Edge, Graph, HighwayClass, Node, haversine};
+use common::{haversine, write_graph, Edge, Graph, HighwayClass, Node};
 use osmpbf::{Element, ElementReader};
 use std::collections::HashMap;
 use std::env;
@@ -53,7 +53,10 @@ fn parse(path: &str) -> Result<Graph> {
         })?;
 
     // Ids de nœuds utilisés → indices compacts.
-    let mut used: Vec<i64> = ways.iter().flat_map(|(n, _, _)| n.iter().copied()).collect();
+    let mut used: Vec<i64> = ways
+        .iter()
+        .flat_map(|(n, _, _)| n.iter().copied())
+        .collect();
     used.sort_unstable();
     used.dedup();
     let mut osm_id_to_idx: HashMap<i64, u32> = HashMap::with_capacity(used.len());
@@ -68,8 +71,8 @@ fn parse(path: &str) -> Result<Graph> {
         .with_context(|| format!("ouverture {path}"))?
         .for_each(|element| {
             let (id, lat, lon) = match element {
-                Element::DenseNode(n) => (n.id(), n.lat() as f64, n.lon() as f64),
-                Element::Node(n) => (n.id(), n.lat() as f64, n.lon() as f64),
+                Element::DenseNode(n) => (n.id(), n.lat(), n.lon()),
+                Element::Node(n) => (n.id(), n.lat(), n.lon()),
                 _ => return,
             };
             if let Some(&idx) = osm_id_to_idx.get(&id) {
@@ -89,10 +92,7 @@ fn parse(path: &str) -> Result<Graph> {
     let mut adj: Vec<Vec<Edge>> = vec![Vec::new(); used.len()];
     for (nids, class, oneway) in &ways {
         for win in nids.windows(2) {
-            let (ai, bi) = match (
-                osm_id_to_idx.get(&win[0]),
-                osm_id_to_idx.get(&win[1]),
-            ) {
+            let (ai, bi) = match (osm_id_to_idx.get(&win[0]), osm_id_to_idx.get(&win[1])) {
                 (Some(&a), Some(&b)) => (a as usize, b as usize),
                 _ => continue,
             };

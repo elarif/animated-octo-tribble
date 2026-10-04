@@ -19,10 +19,7 @@ async fn main() {
         .expect("ADDR invalide");
 
     let state = Arc::new(SimState::load(&graph_path));
-    println!(
-        "serveur {addr} — graph: {}",
-        state.has_graph_description()
-    );
+    println!("serveur {addr} — graph: {}", state.has_graph_description());
 
     let (sim_tx, _) = broadcast::channel::<Arc<SimEvent>>(64);
 
@@ -52,7 +49,10 @@ async fn tick_loop(state: Arc<SimState>, sim_tx: broadcast::Sender<Arc<SimEvent>
 }
 
 async fn sim_ws(
-    axum::extract::State((_, sim_tx)): axum::extract::State<(Arc<SimState>, broadcast::Sender<Arc<SimEvent>>)>,
+    axum::extract::State((_, sim_tx)): axum::extract::State<(
+        Arc<SimState>,
+        broadcast::Sender<Arc<SimEvent>>,
+    )>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     ws.on_upgrade(|socket| handle_sim(socket, sim_tx))
@@ -65,7 +65,7 @@ async fn handle_sim(mut socket: WebSocket, sim_tx: broadcast::Sender<Arc<SimEven
             res = rx.recv() => {
                 match res {
                     Ok(event) => {
-                        if socket.send(Message::Text(serde_json::to_string(&*event).unwrap().into())).await.is_err() {
+                        if socket.send(Message::Text(serde_json::to_string(&*event).unwrap())).await.is_err() {
                             break;
                         }
                     }
@@ -83,7 +83,10 @@ async fn handle_sim(mut socket: WebSocket, sim_tx: broadcast::Sender<Arc<SimEven
 }
 
 async fn control_ws(
-    axum::extract::State((state, _)): axum::extract::State<(Arc<SimState>, broadcast::Sender<Arc<SimEvent>>)>,
+    axum::extract::State((state, _)): axum::extract::State<(
+        Arc<SimState>,
+        broadcast::Sender<Arc<SimEvent>>,
+    )>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
     ws.on_upgrade(|socket| handle_control(socket, state))
@@ -91,15 +94,20 @@ async fn control_ws(
 
 async fn handle_control(mut socket: WebSocket, state: Arc<SimState>) {
     while let Some(Ok(Message::Text(txt))) = socket.recv().await {
-        let reply: Result<serde_json::Value, String> = match serde_json::from_str::<ControlCommand>(&txt) {
-            Ok(cmd) => Ok(state.control(cmd)),
-            Err(e) => Err(format!("commande invalide: {e}")),
-        };
+        let reply: Result<serde_json::Value, String> =
+            match serde_json::from_str::<ControlCommand>(&txt) {
+                Ok(cmd) => Ok(state.control(cmd)),
+                Err(e) => Err(format!("commande invalide: {e}")),
+            };
         let payload = match reply {
             Ok(v) => v,
             Err(e) => serde_json::json!({ "error": e }),
         };
-        if socket.send(Message::Text(payload.to_string().into())).await.is_err() {
+        if socket
+            .send(Message::Text(payload.to_string()))
+            .await
+            .is_err()
+        {
             break;
         }
     }

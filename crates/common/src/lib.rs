@@ -160,10 +160,31 @@ mod tests {
     #[test]
     fn roundtrip() {
         let g = Graph {
-            nodes: vec![Node { lat: -11.7, lon: 43.25 }, Node { lat: -11.71, lon: 43.26 }],
+            nodes: vec![
+                Node {
+                    lat: -11.7,
+                    lon: 43.25,
+                },
+                Node {
+                    lat: -11.71,
+                    lon: 43.26,
+                },
+            ],
             adj: vec![
-                vec![Edge { to: 1, length_m: 1234.5, highway_class: HighwayClass::Residential, oneway: true, pedestrian: true }],
-                vec![Edge { to: 0, length_m: 1234.5, highway_class: HighwayClass::Residential, oneway: false, pedestrian: true }],
+                vec![Edge {
+                    to: 1,
+                    length_m: 1234.5,
+                    highway_class: HighwayClass::Residential,
+                    oneway: true,
+                    pedestrian: true,
+                }],
+                vec![Edge {
+                    to: 0,
+                    length_m: 1234.5,
+                    highway_class: HighwayClass::Residential,
+                    oneway: false,
+                    pedestrian: true,
+                }],
             ],
         };
         let bytes = write_graph(&g);

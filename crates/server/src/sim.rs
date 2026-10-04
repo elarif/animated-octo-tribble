@@ -42,7 +42,7 @@ pub struct Agent {
 }
 
 impl Agent {
-    fn from_node(&self) -> u32 {
+    fn current_edge_from(&self) -> u32 {
         self.path[self.idx]
     }
     fn to_node(&self) -> u32 {
@@ -52,7 +52,6 @@ impl Agent {
         self.idx + 1 >= self.path.len()
     }
 }
-
 
 #[derive(Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -88,11 +87,20 @@ pub struct SimEvent {
 #[derive(serde::Deserialize)]
 #[serde(untagged)]
 pub enum ControlCommand {
-    SetSpeed { set_speed: f64 },
+    SetSpeed {
+        set_speed: f64,
+    },
     /// {set_density} = cible globale, ou {set_density:{bbox:[4],count}} = zone.
-    SetDensity { set_density: serde_json::Value },
-    Pause { pause: bool },
-    GetStats { #[allow(dead_code)] get_stats: serde_json::Value },
+    SetDensity {
+        set_density: serde_json::Value,
+    },
+    Pause {
+        pause: bool,
+    },
+    GetStats {
+        #[allow(dead_code)]
+        get_stats: serde_json::Value,
+    },
 }
 
 /// Bbox : [min_lat, min_lon, max_lat, max_lon].
@@ -107,7 +115,11 @@ impl SimState {
         let graph = match std::fs::read(graph_path) {
             Ok(bytes) => match common::read_graph(&bytes) {
                 Ok(g) => {
-                    println!("graph chargé : {} nœuds, {} arêtes", g.nodes.len(), g.edge_count());
+                    println!(
+                        "graph chargé : {} nœuds, {} arêtes",
+                        g.nodes.len(),
+                        g.edge_count()
+                    );
                     Some(g)
                 }
                 Err(e) => {
@@ -143,7 +155,11 @@ impl SimState {
             }
             None => (Vec::new(), Vec::new(), None, None),
         };
-        println!("car_nodes={}, ped_nodes={}", car_nodes.len(), ped_nodes.len());
+        println!(
+            "car_nodes={}, ped_nodes={}",
+            car_nodes.len(),
+            ped_nodes.len()
+        );
         let target = if graph.is_some() { 1000 } else { 0 };
         Self {
             graph,
@@ -165,7 +181,11 @@ impl SimState {
     }
 
     pub fn has_graph_description(&self) -> &'static str {
-        if self.graph.is_some() { "chargé" } else { "ABSENT — /sim renverra no_graph" }
+        if self.graph.is_some() {
+            "chargé"
+        } else {
+            "ABSENT — /sim renverra no_graph"
+        }
     }
 
     pub fn tick(&self) -> SimEvent {
@@ -175,8 +195,15 @@ impl SimState {
         if let Some(graph) = &self.graph {
             if !inner.paused {
                 // Déstructuré pour satisfaire le borrow checker (agents + cache muts séparés).
-                let Inner { agents: agent_list, cache, speed, target_agents, next_id, zones, .. } =
-                    &mut *inner;
+                let Inner {
+                    agents: agent_list,
+                    cache,
+                    speed,
+                    target_agents,
+                    next_id,
+                    zones,
+                    ..
+                } = &mut *inner;
                 // Spawn : budget de 100 A*/tick pour éviter un hic au démarrage.
                 let mut spawn_budget = 100;
                 // Spawn zone d'abord (déficit > 0), puis global jusqu'à target.
@@ -210,7 +237,9 @@ impl SimState {
                 let mut occupancy: HashMap<(u32, u32), u32> = HashMap::new();
                 for a in agent_list.iter() {
                     if a.kind == AgentKind::Car && !a.arrived() {
-                        *occupancy.entry((a.from_node(), a.to_node())).or_insert(0) += 1;
+                        *occupancy
+                            .entry((a.current_edge_from(), a.to_node()))
+                            .or_insert(0) += 1;
                     }
                 }
                 for agent in agent_list.iter_mut() {
@@ -219,7 +248,10 @@ impl SimState {
             }
             agents = Self::sim_agents(&inner.agents, graph);
         }
-        SimEvent { t: inner.tick, agents }
+        SimEvent {
+            t: inner.tick,
+            agents,
+        }
     }
 
     pub fn control(&self, cmd: ControlCommand) -> serde_json::Value {
@@ -234,9 +266,7 @@ impl SimState {
                 if let Some(count) = set_density.as_u64() {
                     inner.target_agents = count as usize;
                     serde_json::json!({ "target_agents": inner.target_agents })
-                } else if let Ok(z) =
-                    serde_json::from_value::<ZoneDensity>(set_density.clone())
-                {
+                } else if let Ok(z) = serde_json::from_value::<ZoneDensity>(set_density.clone()) {
                     let bbox = z.bbox;
                     let existing = inner.zones.iter().position(|(b, _)| *b == bbox);
                     if let Some(i) = existing {
@@ -254,7 +284,11 @@ impl SimState {
                 serde_json::json!({ "paused": inner.paused })
             }
             ControlCommand::GetStats { .. } => {
-                let cars = inner.agents.iter().filter(|a| a.kind == AgentKind::Car).count();
+                let cars = inner
+                    .agents
+                    .iter()
+                    .filter(|a| a.kind == AgentKind::Car)
+                    .count();
                 let peds = inner.agents.len() - cars;
                 serde_json::json!({
                     "tick": inner.tick,
@@ -283,21 +317,22 @@ impl SimState {
             }
         }
         let mut dist = agent.speed_m_s * speed_mult * 0.1; // tick 100 ms
-        // Congestion : seulement les voitures, seulement si elles sont plusieurs
-        // sur la même arête dirigée (n voitures → facteur 1/n, ponytail: seuil
-        // simple, file d'attente si ce n'est pas assez visuel).
+                                                           // Congestion : seulement les voitures, seulement si elles sont plusieurs
+                                                           // sur la même arête dirigée (n voitures → facteur 1/n, ponytail: seuil
+                                                           // simple, file d'attente si ce n'est pas assez visuel).
         if agent.kind == AgentKind::Car {
-            if let Some(&n) = occupancy.get(&(agent.from_node(), agent.to_node())) {
+            if let Some(&n) = occupancy.get(&(agent.current_edge_from(), agent.to_node())) {
                 if n > 1 {
                     dist /= n as f64;
                 }
             }
         }
         loop {
-            let (from, to) = (agent.from_node(), agent.to_node());
+            let (from, to) = (agent.current_edge_from(), agent.to_node());
             let Some(len) = edge_length(graph, from, to) else {
                 self.retarget(agent, graph, cache);
-                if agent.arrived() || edge_length(graph, agent.from_node(), agent.to_node()).is_none()
+                if agent.arrived()
+                    || edge_length(graph, agent.current_edge_from(), agent.to_node()).is_none()
                 {
                     return;
                 }
@@ -311,7 +346,7 @@ impl SimState {
             if agent.t < 1.0 {
                 return;
             }
-            dist -= (1.0 - agent.t.min(1.0).max(0.0)) * len;
+            dist -= (1.0 - agent.t.clamp(0.0, 1.0)) * len;
             dist = dist.max(0.0);
             dist -= (agent.t - 1.0) * len;
             agent.idx += 1;
@@ -328,7 +363,7 @@ impl SimState {
     /// Nouvelle destination pour l'agent depuis sa position courante.
     fn retarget(&self, agent: &mut Agent, graph: &Graph, cache: &mut PathCache) {
         let mut rng = rand::thread_rng();
-        let here = agent.from_node();
+        let here = agent.current_edge_from();
         let candidates = self.dest_pool(agent.kind, here);
         for _ in 0..2 {
             let dest = pick_destination(&candidates, &mut rng);
@@ -352,7 +387,11 @@ impl SimState {
         match comp {
             Some(c) => {
                 let mine = c.component(here);
-                nodes.iter().copied().filter(|&n| c.component(n) == mine).collect()
+                nodes
+                    .iter()
+                    .copied()
+                    .filter(|&n| c.component(n) == mine)
+                    .collect()
             }
             None => Vec::new(),
         }
@@ -385,7 +424,11 @@ impl SimState {
         zones: &[(BBox, usize)],
     ) -> Option<Agent> {
         let mut rng = rand::thread_rng();
-        let kind = if rng.gen_bool(0.4) { AgentKind::Pedestrian } else { AgentKind::Car };
+        let kind = if rng.gen_bool(0.4) {
+            AgentKind::Pedestrian
+        } else {
+            AgentKind::Car
+        };
         let candidates_all = match kind {
             AgentKind::Car => &self.car_nodes,
             AgentKind::Pedestrian => &self.ped_nodes,
@@ -437,20 +480,30 @@ impl SimState {
     /// Destination pondérée : weight² pour renforcer la concentration.
     /// ponytail: pondération naïve à chaque appel, si hot-path → précalcul des
     /// tables cumulatives par composante.
-    fn pick_weighted_dest(&self, kind: AgentKind, here: u32, rng: &mut impl rand::Rng) -> Option<u32> {
+    fn pick_weighted_dest(
+        &self,
+        kind: AgentKind,
+        here: u32,
+        rng: &mut impl rand::Rng,
+    ) -> Option<u32> {
         let (nodes, comp) = match kind {
             AgentKind::Car => (&self.car_nodes, self.car_comp.as_ref()?),
             AgentKind::Pedestrian => (&self.ped_nodes, self.ped_comp.as_ref()?),
         };
         let mine = comp.component(here);
-        let pool: Vec<&u32> = nodes.iter().filter(|&&n| comp.component(n) == mine).collect();
+        let pool: Vec<&u32> = nodes
+            .iter()
+            .filter(|&&n| comp.component(n) == mine)
+            .collect();
         if pool.is_empty() {
             return None;
         }
         let weights: Vec<f64> = pool
             .iter()
             .map(|&&n| {
-                let Some(graph) = self.graph.as_ref() else { return 0.0 };
+                let Some(graph) = self.graph.as_ref() else {
+                    return 0.0;
+                };
                 let w = graph_node_weight(graph, n);
                 w * w
             })
@@ -473,14 +526,22 @@ impl SimState {
                 if a.arrived() {
                     return None;
                 }
-                let na = &graph.nodes[a.from_node() as usize];
+                let na = &graph.nodes[a.current_edge_from() as usize];
                 let nb = &graph.nodes[a.to_node() as usize];
                 let dlat = nb.lat - na.lat;
                 let dlon = nb.lon - na.lon;
                 let lat = na.lat + dlat * a.t;
                 let lon = na.lon + dlon * a.t;
-                let hdg = dlon.atan2(dlat * (na.lat + dlat * 0.5).to_radians().cos()).to_degrees();
-                Some(SimAgent { id: a.id, k: a.kind, lat, lon, hdg })
+                let hdg = dlon
+                    .atan2(dlat * (na.lat + dlat * 0.5).to_radians().cos())
+                    .to_degrees();
+                Some(SimAgent {
+                    id: a.id,
+                    k: a.kind,
+                    lat,
+                    lon,
+                    hdg,
+                })
             })
             .collect()
     }
@@ -508,27 +569,42 @@ fn despawn_excess(agents: &mut Vec<Agent>, zones: &[(BBox, usize)], global_targe
     let global_present = agents.iter().filter(|a| a.zone.is_none()).count();
     let mut global_excess = global_present.saturating_sub(*global_target);
     for (i, (_, ztarget)) in zones.iter().enumerate() {
-        let mut excess =
-            agents.iter().filter(|a| a.zone == Some(i)).count().saturating_sub(*ztarget);
+        let mut excess = agents
+            .iter()
+            .filter(|a| a.zone == Some(i))
+            .count()
+            .saturating_sub(*ztarget);
         while excess > 0 {
-            let Some(pos) = agents.iter().rposition(|a| a.zone == Some(i)) else { break };
+            let Some(pos) = agents.iter().rposition(|a| a.zone == Some(i)) else {
+                break;
+            };
             agents.remove(pos);
             excess -= 1;
         }
     }
     while global_excess > 0 {
-        let Some(pos) = agents.iter().rposition(|a| a.zone.is_none()) else { break };
+        let Some(pos) = agents.iter().rposition(|a| a.zone.is_none()) else {
+            break;
+        };
         agents.remove(pos);
         global_excess -= 1;
     }
 }
 
 fn agent_in_graph(graph: &Graph, kind: AgentKind, node: u32) -> usize {
-    graph.adj[node as usize].iter().filter(|e| kind.filter(e)).count()
+    graph.adj[node as usize]
+        .iter()
+        .filter(|e| kind.filter(e))
+        .count()
 }
 
 fn edge_length(graph: &Graph, from: u32, to: u32) -> Option<f64> {
-    graph.adj.get(from as usize)?.iter().find(|e| e.to == to).map(|e| e.length_m as f64)
+    graph
+        .adj
+        .get(from as usize)?
+        .iter()
+        .find(|e| e.to == to)
+        .map(|e| e.length_m as f64)
 }
 #[cfg(test)]
 mod tests {
@@ -541,12 +617,23 @@ mod tests {
 
     fn e(to: u32, len: f32) -> Edge {
         let cls = HighwayClass::Residential;
-        Edge { to, length_m: len, highway_class: cls, oneway: false, pedestrian: true }
+        Edge {
+            to,
+            length_m: len,
+            highway_class: cls,
+            oneway: false,
+            pedestrian: true,
+        }
     }
 
     /// Chaîne 0-1-2-3 (Residential, praticable voiture+piéton), ~111 m par saut.
     fn test_state() -> SimState {
-        let nodes = vec![n(-11.70, 43.24), n(-11.701, 43.24), n(-11.702, 43.24), n(-11.703, 43.24)];
+        let nodes = vec![
+            n(-11.70, 43.24),
+            n(-11.701, 43.24),
+            n(-11.702, 43.24),
+            n(-11.703, 43.24),
+        ];
         let mut adj: Vec<Vec<Edge>> = vec![Vec::new(); 4];
         adj[0].push(e(1, 111.0));
         adj[1].push(e(0, 111.0));
@@ -577,16 +664,31 @@ mod tests {
             inner.target_agents = 3; // pas de spawn : 3 présents.
             inner.agents = vec![
                 Agent {
-                    id: 1, kind: AgentKind::Car, path: vec![0, 1, 2], idx: 0, t: 0.0,
-                    speed_m_s: 8.33, zone: None,
+                    id: 1,
+                    kind: AgentKind::Car,
+                    path: vec![0, 1, 2],
+                    idx: 0,
+                    t: 0.0,
+                    speed_m_s: 8.33,
+                    zone: None,
                 },
                 Agent {
-                    id: 2, kind: AgentKind::Car, path: vec![0, 1, 2], idx: 0, t: 0.0,
-                    speed_m_s: 8.33, zone: None,
+                    id: 2,
+                    kind: AgentKind::Car,
+                    path: vec![0, 1, 2],
+                    idx: 0,
+                    t: 0.0,
+                    speed_m_s: 8.33,
+                    zone: None,
                 },
                 Agent {
-                    id: 3, kind: AgentKind::Car, path: vec![2, 3], idx: 0, t: 0.0,
-                    speed_m_s: 8.33, zone: None,
+                    id: 3,
+                    kind: AgentKind::Car,
+                    path: vec![2, 3],
+                    idx: 0,
+                    t: 0.0,
+                    speed_m_s: 8.33,
+                    zone: None,
                 },
             ];
         }
@@ -597,7 +699,10 @@ mod tests {
             (t(1), t(2), t(3))
         };
         // Congestion : 8.33*0.1/111/2 ≈ 0.00375. Seule : ≈ 0.0075.
-        assert!((t1 - t2).abs() < 1e-9, "même arête, même facteur: t1={t1} t2={t2}");
+        assert!(
+            (t1 - t2).abs() < 1e-9,
+            "même arête, même facteur: t1={t1} t2={t2}"
+        );
         assert!(t1 < t3, "congestion ralentit: t1={t1} t3={t3}");
         assert!(t1 > 0.0 && t1 < 0.006, "facteur 1/2 appliqué: t1={t1}");
     }

@@ -4,10 +4,13 @@ import 'sim_connection.dart';
 import 'sim_map.dart';
 
 void main() {
-  // En web l'app est servie sur localhost → localhost:9000 marche.
-  // Sur desktop Linux, idem.
-  const defaultUrl = 'ws://localhost:9000/sim';
-  runApp(ComorosTrafficApp(simUrl: defaultUrl));
+  // URL du backend : override au build avec
+  //   flutter build web --dart-define=SIM_WS_URL=wss://mon-serveur/sim
+  const simUrl = String.fromEnvironment(
+    'SIM_WS_URL',
+    defaultValue: 'ws://localhost:9000/sim',
+  );
+  runApp(const ComorosTrafficApp(simUrl: simUrl));
 }
 
 class ComorosTrafficApp extends StatefulWidget {

@@ -1,4 +1,4 @@
-use common::{haversine, Graph, Node};
+use common::{haversine, Graph};
 use std::collections::{BinaryHeap, HashMap, VecDeque};
 
 /// A* admissible (heuristique = haversine, min 0). Retourne la liste de nœuds
@@ -22,7 +22,10 @@ where
     impl Eq for Entry {}
     impl Ord for Entry {
         fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-            other.f.partial_cmp(&self.f).unwrap_or(std::cmp::Ordering::Equal)
+            other
+                .f
+                .partial_cmp(&self.f)
+                .unwrap_or(std::cmp::Ordering::Equal)
         }
     }
     impl PartialOrd for Entry {
@@ -40,7 +43,10 @@ where
         // admissible : arête est au moins aussi longue que la ligne droite.
         haversine(graph.nodes[n as usize], goal_node)
     };
-    heap.push(Entry { f: h(start), node: start });
+    heap.push(Entry {
+        f: h(start),
+        node: start,
+    });
 
     while let Some(Entry { f: _, node }) = heap.pop() {
         if node == goal {
@@ -62,7 +68,10 @@ where
             if tentative < g_score.get(&edge.to).copied().unwrap_or(f64::INFINITY) {
                 g_score.insert(edge.to, tentative);
                 came_from.insert(edge.to, node);
-                heap.push(Entry { f: tentative + h(edge.to), node: edge.to });
+                heap.push(Entry {
+                    f: tentative + h(edge.to),
+                    node: edge.to,
+                });
             }
         }
     }
@@ -79,7 +88,11 @@ pub struct PathCache {
 
 impl PathCache {
     pub fn new(cap: usize) -> Self {
-        Self { cap, queue: VecDeque::new(), map: HashMap::new() }
+        Self {
+            cap,
+            queue: VecDeque::new(),
+            map: HashMap::new(),
+        }
     }
 
     pub fn get(&mut self, key: (u32, u32)) -> Option<Option<Vec<u32>>> {
@@ -154,7 +167,8 @@ impl Components {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use common::{HighwayClass, Edge};
+    use common::Node;
+    use common::{Edge, HighwayClass};
 
     fn n(lat: f64, lon: f64) -> Node {
         Node { lat, lon }
@@ -162,7 +176,13 @@ mod tests {
 
     fn e(to: u32, len: f32, class: HighwayClass, oneway: bool) -> Edge {
         let pedestrian = class.pedestrian_ok();
-        Edge { to, length_m: len, highway_class: class, oneway, pedestrian }
+        Edge {
+            to,
+            length_m: len,
+            highway_class: class,
+            oneway,
+            pedestrian,
+        }
     }
 
     /// Graphe 10 nœuds : chaîne 0-1-2-3-4 + bypass 0-2-4, branche piéton 5-6.
@@ -209,9 +229,16 @@ mod tests {
         assert_eq!(path[0], 0);
         assert_eq!(path[path.len() - 1], 4);
         // longueur : soit 444 (0-1-2-3-4), soit 222+222+... vérifions que <= 444
-        let len: f32 = path.windows(2).map(|w| {
-            g.adj[w[0] as usize].iter().find(|e| e.to as usize == w[1] as usize).unwrap().length_m
-        }).sum();
+        let len: f32 = path
+            .windows(2)
+            .map(|w| {
+                g.adj[w[0] as usize]
+                    .iter()
+                    .find(|e| e.to as usize == w[1] as usize)
+                    .unwrap()
+                    .length_m
+            })
+            .sum();
         assert!(len <= 444.5, "len={len}");
         assert!(len >= 333.0, "len={len}");
     }
@@ -231,8 +258,9 @@ mod tests {
         assert!(astar(&g, 5, 6, &PED).is_some());
         // et les voitures ne peuvent pas aller sur les footways : 0→5 en voiture impossible si
         // l'arête 0-5 est un Footway (pedestrian_only).
-        assert!(astar(&g, 0, 5, &CAR).is_none()
-            || g.adj[0].iter().any(|e| e.to == 5 as u32 && CAR(e)));
+        assert!(
+            astar(&g, 0, 5, &CAR).is_none() || g.adj[0].iter().any(|e| e.to == 5_u32 && CAR(e))
+        );
     }
 
     #[test]
