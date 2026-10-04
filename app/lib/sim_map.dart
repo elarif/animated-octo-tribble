@@ -49,7 +49,7 @@ final _islands = <_Island>[
 ];
 
 class _SimMapState extends State<SimMap> {
-  final _mapController = MapController();
+  MapController _mapController = MapController();
   int _island = 0;
 
   @override
@@ -68,7 +68,7 @@ class _SimMapState extends State<SimMap> {
                   initialZoom: island.zoom,
                   minZoom: island.minZoom,
                   maxZoom: 16.0,
-                  cameraConstraint: CameraConstraint.contain(bounds: island.bounds),
+                  cameraConstraint: CameraConstraint.containCenter(bounds: island.bounds),
                 ),
                 children: [
                   TileLayer(
@@ -95,7 +95,17 @@ class _SimMapState extends State<SimMap> {
                             DropdownMenuItem(value: i, child: Text(_islands[i].name)),
                         ],
                         padding: const EdgeInsets.symmetric(horizontal: 16),
-                        onChanged: (v) => setState(() => _island = v ?? 0),
+                        onChanged: (v) {
+                          setState(() => _island = v ?? 0);
+                          final island = _islands[_island];
+                          // Recréer le controller force FlutterMap à appliquer les
+                          // nouvelles options (sinon l'ancienne contrainte de
+                          // caméra clamp le recentrage vers l'ancienne île).
+                          _mapController = MapController();
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            _mapController.move(island.center, island.zoom);
+                          });
+                        },
                       ),
                     ),
                   ),
