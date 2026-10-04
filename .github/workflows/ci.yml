@@ -43,7 +43,7 @@ jobs:
         run: |
           flutter build web --release \
             --base-href "/${{ github.event.repository.name }}/" \
-            --dart-define=SIM_WS_URL=${{ vars.SIM_WS_URL || 'ws://localhost:9000/sim' }}"
+            --dart-define="SIM_WS_URL=${{ vars.SIM_WS_URL || 'ws://localhost:9000/sim' }}"
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app/build/web
