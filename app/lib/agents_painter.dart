@@ -1,5 +1,7 @@
+import 'dart:math' show cos, sin;
+
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:flutter_map/flutter_map.dart';
 
 import 'sim_connection.dart';
@@ -22,8 +24,29 @@ class AgentsPainter extends CustomPainter {
       if (p.dx < -8 || p.dy < -8 || p.dx > size.width + 8 || p.dy > size.height + 8) {
         continue;
       }
-      canvas.drawCircle(p, a.kind == 'car' ? 3.0 : 2.0, a.kind == 'car' ? _carPaint : _pedPaint);
+      if (a.kind == 'car') {
+        _drawCar(canvas, p, a.heading);
+      } else {
+        canvas.drawCircle(p, 2.0, _pedPaint);
+      }
     }
+  }
+
+  /// Voiture = triangle bleu orienté selon le cap (hdg, degrés, 0 = est).
+  void _drawCar(Canvas canvas, Offset c, double headingDeg) {
+    const r = 5.0;
+    final th = headingDeg * 3.141592653589793 / 180.0;
+    final forward = Offset(r * cos(th), r * sin(th));
+    final backLeft = Offset(-r * 0.6 * cos(th) - r * 0.55 * sin(th),
+        -r * 0.6 * sin(th) + r * 0.55 * cos(th));
+    final backRight = Offset(-r * 0.6 * cos(th) + r * 0.55 * sin(th),
+        -r * 0.6 * sin(th) - r * 0.55 * cos(th));
+    final path = Path()
+      ..moveTo(c.dx + forward.dx, c.dy + forward.dy)
+      ..lineTo(c.dx + backLeft.dx, c.dy + backLeft.dy)
+      ..lineTo(c.dx + backRight.dx, c.dy + backRight.dy)
+      ..close();
+    canvas.drawPath(path, _carPaint);
   }
 
   @override
