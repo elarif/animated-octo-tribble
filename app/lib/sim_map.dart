@@ -15,21 +15,60 @@ class SimMap extends StatefulWidget {
   State<SimMap> createState() => _SimMapState();
 }
 
+class _Island {
+  const _Island(this.name, this.center, this.zoom, this.minZoom, this.bounds);
+  final String name;
+  final LatLng center;
+  final double zoom;
+  final double minZoom;
+  final LatLngBounds bounds;
+}
+
+final _islands = <_Island>[
+  _Island(
+    'Grande Comore',
+    LatLng(-11.65, 43.37),
+    11.2,
+    10.5,
+    LatLngBounds(LatLng(-12.0, 43.15), LatLng(-11.25, 43.6)),
+  ),
+  _Island(
+    'Mohéli',
+    LatLng(-12.32, 43.75),
+    11.5,
+    11.0,
+    LatLngBounds(LatLng(-12.50, 43.55), LatLng(-12.15, 43.95)),
+  ),
+  _Island(
+    'Anjouan',
+    LatLng(-12.23, 44.38),
+    11.0,
+    10.5,
+    LatLngBounds(LatLng(-12.50, 44.12), LatLng(-12.0, 44.65)),
+  ),
+];
+
 class _SimMapState extends State<SimMap> {
   final _mapController = MapController();
+  int _island = 0;
 
   @override
   Widget build(BuildContext context) {
+    final island = _islands[_island];
     return Column(
       children: [
         Expanded(
           child: Stack(
             children: [
               FlutterMap(
+                key: ValueKey(_island),
                 mapController: _mapController,
                 options: MapOptions(
-                  initialCenter: const LatLng(-12.0, 44.0),
-                  initialZoom: 7.0,
+                  initialCenter: island.center,
+                  initialZoom: island.zoom,
+                  minZoom: island.minZoom,
+                  maxZoom: 16.0,
+                  cameraConstraint: CameraConstraint.contain(bounds: island.bounds),
                 ),
                 children: [
                   TileLayer(
@@ -37,6 +76,30 @@ class _SimMapState extends State<SimMap> {
                     userAgentPackageName: 'com.example.comores_traffic_app',
                   ),
                 ],
+              ),
+              // Sélecteur d'île en haut, au centre
+              Positioned(
+                top: 8,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(20),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<int>(
+                        value: _island,
+                        borderRadius: BorderRadius.circular(12),
+                        items: [
+                          for (var i = 0; i < _islands.length; i++)
+                            DropdownMenuItem(value: i, child: Text(_islands[i].name)),
+                        ],
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        onChanged: (v) => setState(() => _island = v ?? 0),
+                      ),
+                    ),
+                  ),
+                ),
               ),
               // Canvas des agents par-dessus les tuiles : on repeint quand la
               // caméra bouge OU quand un nouveau tick arrive.
