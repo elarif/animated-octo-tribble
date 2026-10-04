@@ -146,6 +146,8 @@ class _StatusBar extends StatelessWidget {
 
   final SimConnection sim;
 
+  static const _sha = String.fromEnvironment('GIT_SHA', defaultValue: 'dev');
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -160,6 +162,15 @@ class _StatusBar extends StatelessWidget {
             style: TextStyle(color: color, fontSize: 14),
             child: Row(
               children: [
+                Text(
+                  _sha.length > 7 ? _sha.substring(0, 7) : _sha,
+                  style: TextStyle(
+                    color: color.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(width: 12),
                 Icon(sim.connected ? Icons.cloud_done : Icons.cloud_off,
                     color: color, size: 16),
                 const SizedBox(width: 8),
